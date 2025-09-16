@@ -42,7 +42,10 @@ class UserController extends Controller
 
             $data = $request->except('password_confirmation');
             $data['password'] = Hash::make($request->password);
-            User::create($data);
+
+            $user = User::create($data);
+            $user->assignRole('admin');
+
 
             return response()->json([
                 'message' => 'User Created',

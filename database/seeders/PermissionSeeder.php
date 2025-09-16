@@ -28,7 +28,7 @@ class PermissionSeeder extends Seeder
 
         # Permission - Labels
         Permission::create(['name' => 'create-label']);
-        Permission::create(['name' => 'edit-labels']);
+        Permission::create(['name' => 'edit-label']);
         Permission::create(['name' => 'delete-label']);
 
         # Permission - User
@@ -59,6 +59,6 @@ class PermissionSeeder extends Seeder
 
         $roleGuest = Role::findByName('guest');
         $roleGuest -> givePermissionTo('view-file');
-        
+
     }
 }
