@@ -15,5 +15,7 @@ Route::post('/login-user', [UserController::class, 'login']);
 Route::post('/logout-user', [UserController::class, 'logout'])->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/my-files/{folder?}', [FileController::class, 'myFiles']);
+    Route::get('/my-files/{folder?}', [FileController::class, 'myFiles'])->where('folder', '.*');
+    Route::post('/create-folder', [FileController::class, 'createFolder']);
+    Route::post('/upload-files', [FileController::class, 'store']);
 });
