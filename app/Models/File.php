@@ -24,7 +24,6 @@ class File extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'id',
         'name',
         'path',
         '_lft',
@@ -46,27 +45,6 @@ class File extends Model
         'is_folder' => 'boolean',
         'size' => 'integer',
     ];
-
-     /**
-     * The primary key for the model.
-     *
-     * @var string
-     */
-    protected $primaryKey = 'id';
-
-    /**
-     * The "type" of the primary key ID.
-     *
-     * @var string
-     */
-    protected $keyType = 'string';
-
-    /**
-     * Indicates if the IDs are auto-incrementing.
-     *
-     * @var bool
-     */
-    public $incrementing = false;
 
     /**
      * Get the user that created the file.
@@ -122,10 +100,6 @@ class File extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            if (empty($model->id)) {
-                $model->id = (string) Str::uuid();
-            }
-
             if (!$model->parent) {
                 return;
             }
