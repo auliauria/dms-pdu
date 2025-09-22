@@ -5,66 +5,143 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\File;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Spatie\Permission\Exceptions\RoleDoesNotExist;
 
 class UserController extends Controller
 {
-    public function register(Request $request){
+    public function register(Request $request)
+    {
         try {
             $messages = [
-                'email.required' => 'The email field is required',
-                'email.email' => 'The email must be a valid email address',
-                'email.exists' => 'The selected email is invalid',
-                'fullname.required' => 'The fullname field is required',
-                'username.reqiured' => 'The username fiels is required',
-                'username.unique' => 'This username is already exist',
-                'password.required' => 'The password field is required',
-                'password.confirmed' => 'Password confirmation does not match'
+                'email.required' => 'The email field is required.',
+                'email.email' => 'The email must be a valid email address.',
+                'email.unique' => 'This email is already registered.',
+                'fullname.required' => 'The fullname field is required.',
+                'username.required' => 'The username field is required.',
+                'username.unique' => 'This username is already taken.',
+                'password.required' => 'The password field is required.',
+                'password.confirmed' => 'Password confirmation does not match.',
+                'password.min' => 'The password must be at least 8 characters.',
             ];
 
-            $validator = Validator::make(
-                $request->all(),
-                [
-                    'fullname' => 'required|string',
-                    'username' => 'required|string|unique:users,username',
-                    'email' => 'required|email|unique:users,email',
-                    'password' => 'required|confirmed'
-                ],
-                $messages
-            );
+            $validator = Validator::make($request->all(), [
+                'fullname' => 'required|string|max:255',
+                'username' => 'required|string|unique:users,username|max:50',
+                'email' => 'required|email|unique:users,email|max:255',
+                'password' => 'required|confirmed|min:8',
+            ], $messages);
 
-            if ($validator->fails()){
+            if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $validator->messages()->first()
+                    'message' => $validator->errors()->first(),
                 ], 422);
             }
 
-            $data = $request->except('password_confirmation');
-            $data['password'] = Hash::make($request->password);
+            return DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'fullname' => $request->fullname,
+                    'username' => $request->username,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                ]);
 
-            $user = User::create($data);
-            $user->assignRole('admin');
+                $user->sendEmailVerificationNotification();
 
-            $root = new File();
-            $root->name = $user->email;
-            $root->is_folder = 1;
-            $root->created_by = $user->id;
-            $root->updated_by = $user->id;
-            $root->makeRoot()->save();
+                try {
+                    $user->assignRole('admin');
+                } catch (RoleDoesNotExist $e) {
+                    throw new \Exception('Role "admin" does not exist.');
+                }
+
+                $root = new File();
+                $root->name = $user->email;
+                $root->is_folder = true;
+                $root->created_by = $user->id;
+                $root->updated_by = $user->id;
+                $root->makeRoot()->save();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'User created successfully.',
+                ], 201);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to register due to a database error.',
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to register: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        try {
+            $user = User::findOrFail($id);
+
+            if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid verification link.'
+                ], 400);
+            }
+
+            if ($user->hasVerifiedEmail()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Email already verified.'
+                ], 200);
+            }
+
+            $user->markEmailAsVerified();
 
             return response()->json([
-                'message' => 'User Created',
-                'status' => 'Success'
-            ], 201);
-        }
-
-        catch (\Exception $e) {
+                'status' => 'success',
+                'message' => 'Email verified successfully.'
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to Register',
-                'error' => $e->getMessage()
+                'message' => 'User not found.'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to verify email: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function resendVerificationEmail(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if ($user->hasVerifiedEmail()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Email already verified.'
+                ], 200);
+            }
+
+            $user->sendEmailVerificationNotification();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Verification email resent.'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to resend verification email: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -19,3 +19,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/create-folder', [FileController::class, 'createFolder']);
     Route::post('/upload-files', [FileController::class, 'store']);
 });
+
+Route::get('email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])
+    ->name('verification.verify');
+
+Route::get('email/resend', [UserController::class, 'resendVerificationEmail'])
+    ->name('verification.resend');
+
+
