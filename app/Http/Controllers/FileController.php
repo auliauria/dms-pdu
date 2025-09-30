@@ -20,7 +20,9 @@ class FileController extends Controller
         try {
             Log::info('Authenticated User ID: ' . Auth::id());
             if (!Auth::check()) {
-                return response()->json(['message' => 'Unauthenticated'], 401);
+                return response()->json([
+                    'message' => 'Unauthenticated'],
+                    401);
             }
 
             $search = $request->get('search');
