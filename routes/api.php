@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/share-file/{file}', [ShareController::class, 'store']);
     Route::get('/shared-file/{file_id}', [ShareController::class, 'index']);
     Route::get('/user-shared-files/{file_id}/{email}', [ShareController::class, 'userSharedFiles']);
+    Route::get('/shared-with-me', [ShareController::class, 'sharedWithMe']);
 });
 
 Route::get('email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])

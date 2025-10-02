@@ -212,33 +212,6 @@ class UserController extends Controller
         }
     }
 
-    public function logout(Request $request){
-        try {
-            $user = $request->user();
-
-            if (!$user) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'User not authenticated'
-                ], 401);
-            }
-
-            $user->currentAccessToken()->delete();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Successfully logged out'
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to logout',
-                'error'   => $e->getMessage()
-            ], 500);
-        }
-    }
-
     public function sendResetToken(Request $request)
     {
         try {
@@ -383,6 +356,33 @@ class UserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function logout(Request $request){
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+
+            $user->currentAccessToken()->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Successfully logged out'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to logout',
+                'error'   => $e->getMessage()
             ], 500);
         }
     }

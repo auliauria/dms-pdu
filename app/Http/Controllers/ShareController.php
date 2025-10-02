@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Ramsey\Uuid\Type\Integer;
+use Spatie\Permission\Models\Permission;
 
 class ShareController extends Controller
 {
@@ -117,12 +118,50 @@ class ShareController extends Controller
             ], 403);
             }
 
+            if (!Auth::check()) {
+                return response()->json([
+                    'message' => 'Unauthenticated'],
+                    401);
+            }
+
+            if ($file->id != $request->file_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File ID mismatch.',
+                ], 400);
+            }
+
             $validated = $request->validate([
                 'permission_id' => 'required|exists:permissions,id',
                 'file_id' => 'required|exists:files,id',
                 'emails' => 'required|array|min:1',
                 'emails.*' => 'email|exists:users,email',
             ]);
+
+
+            foreach ($validated['emails'] as $email) {
+                $user = User::where('email', $email)->first();
+
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "User with email $email not found.",
+                    ], 404);
+                }
+
+                $user_id = $user->id;
+
+                $alreadyShared = Shareable::where('file_id', $file->id)
+                    ->where('user_id', $user_id)
+                    ->exists();
+
+                if ($alreadyShared) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "File already shared to $email.",
+                    ], 400);
+                }
+            }
 
             foreach ($validated['emails'] as $email) {
                 $user = User::where('email', $email)->first();
@@ -173,4 +212,41 @@ class ShareController extends Controller
     }
 
 
+    public function sharedWithMe(){
+        try{
+            if (!Auth::check()) {
+                return response()->json([
+                    'message' => 'Unauthenticated'],
+                    401);
+            }
+
+            $user = Auth::user();
+            $sharedFiles = $user->sharedFiles()
+                ->with(['user'])
+                ->get()
+                ->map(function ($file) {
+                    return [
+                        'file_id' => $file->id,
+                        'file_name' => $file->name,
+                        'file_path' => $file->path,
+                        'shared_by' => [
+                            'id' => $file->user->id,
+                            'name' => $file->user->fullname,
+                            'email' => $file->user->email,
+                        ],
+                        'permission' => Permission::find($file->pivot->permission_id)->name,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $sharedFiles,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve shared files: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

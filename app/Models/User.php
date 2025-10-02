@@ -49,4 +49,16 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function sharedFiles()
+    {
+        return $this->belongsToMany(
+            File::class,
+            'shareables',
+            'user_id',
+            'file_id'
+        )
+        ->withPivot(['permission_id', 'created_by'])
+        ->withTimestamps();
+    }
 }
