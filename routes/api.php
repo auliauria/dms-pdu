@@ -23,6 +23,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/delete-file', [FileController::class, 'destroy']);
     Route::post('/share-file/{file}', [ShareController::class, 'store']);
     Route::post('/restore-file', [FileController::class, 'restore']);
+    Route::get('/shared-file/{file_id}', [ShareController::class, 'index']);
+    Route::get('/user-shared-files/{file_id}/{email}', [ShareController::class, 'userSharedFiles']);
+    Route::get('/shared-with-me', [ShareController::class, 'sharedWithMe']);
 });
 
 Route::get('email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])
@@ -31,4 +34,7 @@ Route::get('email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])
 Route::get('email/resend', [UserController::class, 'resendVerificationEmail'])
     ->name('verification.resend');
 
+Route::post('/forgot-password', [UserController::class, 'sendResetToken']);
+Route::post('/verify-token', [UserController::class, 'verifyToken']);
+Route::post('/reset-password', [UserController::class, 'resetPassword']);
 

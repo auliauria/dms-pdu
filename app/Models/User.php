@@ -23,7 +23,6 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'fullname',
-        'username',
         'email',
         'password',
     ];
@@ -49,5 +48,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function sharedFiles()
+    {
+        return $this->belongsToMany(
+            File::class,
+            'shareables',
+            'user_id',
+            'file_id'
+        )
+        ->withPivot(['permission_id', 'created_by'])
+        ->withTimestamps();
     }
 }
