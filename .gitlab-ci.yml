@@ -1,3 +1,5 @@
+# ---------- CI/CD ----------
+
 stages:
   - build
   - test
