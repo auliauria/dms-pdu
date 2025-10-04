@@ -60,8 +60,13 @@ unit_test_app:
 # ---------- DEPLOY ----------
 deploy_to_vps:
   stage: deploy
-  only:
-    - main
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - when: manual
+
   before_script:
     - echo "Starting deployment to VPS..."
   script:
@@ -97,4 +102,3 @@ deploy_to_vps:
   environment:
     name: production
     url: http://$DEPLOY_HOST
-  when: manual  
