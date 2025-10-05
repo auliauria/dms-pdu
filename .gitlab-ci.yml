@@ -85,17 +85,26 @@ deploy_to_vps:
     - ssh $DEPLOY_USER@$DEPLOY_HOST "
         cd $DEPLOY_PATH &&
         echo 'Pulling latest code...' &&
-        git fetch origin main &&
-        git reset --hard origin/main &&
+
+        git fetch gitlab $BRANCH_DEPLOY &&
+        git reset --hard gitlab/$BRANCH_DEPLOY &&
+
         echo 'Creating DB backup...' &&
         mkdir -p storage/backups &&
         mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE > storage/backups/db_backup_$(date +%F_%H-%M-%S).sql &&
         echo 'Backup completed.' &&
+
+        php artisan route:clear &&
+        php artisan config:clear &&
+        php artisan view:clear &&
+
         composer install --no-dev --optimize-autoloader &&
         php artisan migrate --force &&
+
         php artisan config:cache &&
         php artisan route:cache &&
         php artisan view:cache &&
+        
         sudo systemctl reload php8.2-fpm &&
         sudo systemctl restart nginx
       "
