@@ -84,8 +84,8 @@ deploy_to_vps:
 
     - ssh $DEPLOY_USER@$DEPLOY_HOST "
         cd $DEPLOY_PATH &&
+        sudo chown -R $DEPLOY_USER:$DEPLOY_USER storage bootstrap/cache &&
         echo 'Pulling latest code...' &&
-
         git fetch gitlab $BRANCH_DEPLOY &&
         git reset --hard gitlab/$BRANCH_DEPLOY &&
 
