@@ -64,7 +64,7 @@ class File extends Model
 
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(File::class, 'parent_id');
+        return $this->belongsTo(File::class, 'parent_id')->withTrashed();
     }
 
     public function owner(): Attribute
@@ -105,12 +105,6 @@ class File extends Model
             }
             $model->path = ( !$model->parent->isRoot() ? $model->parent->path . '/' : '' ) . Str::slug($model->name);
         });
-
-//        static::deleted(function(File $model) {
-//            if (!$model->is_folder) {
-//                Storage::delete($model->storage_path);
-//            }
-//        });
     }
 
     public function shares()
@@ -118,6 +112,22 @@ class File extends Model
         return $this->belongsToMany(User::class, 'shareables', 'file_id', 'user_id')
             ->withPivot('permission_id')
             ->withTimestamps();
+    }
+
+    public function shareables()
+    {
+        return $this->hasMany(Shareable::class, 'file_id');
+    }
+
+    public function moveToTrashWithDescendants()
+    {
+        $nodes = $this->descendants()->with('shareables')->get()->push($this);
+
+        \App\Models\Shareable::whereIn('file_id', $nodes->pluck('id'))->delete();
+
+        foreach ($nodes as $node) {
+            $node->delete();
+        }
     }
 
 }
