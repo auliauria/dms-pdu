@@ -19,7 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-files/{folder?}', [FileController::class, 'myFiles'])->where('folder', '.*');
     Route::post('/create-folder', [FileController::class, 'createFolder']);
     Route::post('/upload-files', [FileController::class, 'store']);
-    Route::post('/share-file/{file}', [ShareController::class, 'store']);
+    Route::post('/share-file/{file_id}', [ShareController::class, 'store']);
     Route::get('/shared-file/{file_id}', [ShareController::class, 'index']);
     Route::get('/user-shared-files/{file_id}/{email}', [ShareController::class, 'userSharedFiles']);
     Route::get('/shared-with-me', [ShareController::class, 'sharedWithMe']);
