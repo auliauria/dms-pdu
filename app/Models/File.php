@@ -130,22 +130,6 @@ class File extends Model
         }
     }
 
-    public function shareables()
-    {
-        return $this->hasMany(Shareable::class, 'file_id');
-    }
-
-    public function moveToTrashWithDescendants()
-    {
-        $nodes = $this->descendants()->with('shareables')->get()->push($this);
-
-        \App\Models\Shareable::whereIn('file_id', $nodes->pluck('id'))->delete();
-
-        foreach ($nodes as $node) {
-            $node->delete();
-        }
-    }
-
     public function labels()
     {
         return $this->belongsToMany(Label::class, 'file_has_labels', 'file_id', 'label_id')
