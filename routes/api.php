@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\LabelController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\ShareController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Contracts\Role;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -23,6 +25,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/shared-file/{file_id}', [ShareController::class, 'index']);
     Route::get('/user-shared-files/{file_id}/{email}', [ShareController::class, 'userSharedFiles']);
     Route::get('/shared-with-me', [ShareController::class, 'sharedWithMe']);
+    Route::get('/labels', [LabelController::class, 'index']);
+    Route::get('/label/{labelId}', [LabelController::class, 'show']);
+    Route::post('/create-label', [LabelController::class, 'store']);
+    Route::patch('/update-label/{labelId}', [LabelController::class, 'update']);
+    Route::delete('/delete-label/{labelId}', [LabelController::class, 'destroy']);
 });
 
 Route::get('email/verify/{id}/{hash}', [UserController::class, 'verifyEmail'])
