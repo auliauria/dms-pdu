@@ -70,7 +70,9 @@ class StoreFileRequest extends ParentIdBaseRequest
                 //         }
                 //     }
                 // }
-            ]
+            ],
+            'labels' => ['nullable', 'array'],
+            'labels.*' => ['exists:labels,id'],
         ]);
     }
 

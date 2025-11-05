@@ -14,7 +14,7 @@ class Label extends Model
 
     public function files()
     {
-        return $this->belongsToMany(File::class, 'file_has_labels', 'label_id', 'file_id')
+        return $this->belongsToMany(File::class, 'file_labels', 'label_id', 'file_id')
             ->withTimestamps();
     }
 }

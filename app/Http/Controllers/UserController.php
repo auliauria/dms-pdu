@@ -416,6 +416,12 @@ class UserController extends Controller
 
     public function resetPassword(Request $request){
         try {
+            $request->validate([
+                'email' => 'required|email|exists:users,email',
+                'token' => 'required|min:4',
+                'password' => 'required|confirmed|min:8',
+
+            ]);
             $updatePassword = DB::table('password_reset_tokens')
                 ->where([
                     'email' => $request->email,
@@ -430,7 +436,7 @@ class UserController extends Controller
                 ], 422);
             }
             $user = User::query()->where('email', $request->email)
-                ->update(['password' => Hash::make($request->new_password)]);
+                ->update(['password' => Hash::make($request->password)]);
 
             DB::table('password_reset_tokens')->where(['email' => $request->email])->delete();
 

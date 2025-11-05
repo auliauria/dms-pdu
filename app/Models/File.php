@@ -133,7 +133,7 @@ class File extends Model
 
     public function labels()
     {
-        return $this->belongsToMany(Label::class, 'file_has_labels', 'file_id', 'label_id')
+        return $this->belongsToMany(Label::class, 'file_labels', 'file_id', 'label_id')
             ->withTimestamps();
     }
 
