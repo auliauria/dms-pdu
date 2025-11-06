@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\File;
 use App\Http\Requests\StoreFileRequest;
 use App\Http\Requests\StoreFolderRequest;
+use App\Http\Requests\UpdateFileRequest;
 use App\Http\Resources\FileResource;
 use App\Jobs\UploadFileToCloudJob;
 use Illuminate\Support\Facades\Validator;
@@ -19,6 +20,7 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class FileController extends Controller
 {
@@ -46,6 +48,7 @@ class FileController extends Controller
                 ->select('files.*')
                 ->where('created_by', Auth::id())
                 ->where('_lft', '!=', 1)
+                ->with('labels')
                 ->orderBy('is_folder', 'desc')
                 ->orderBy('files.created_at', 'desc')
                 ->orderBy('files.id', 'desc');
@@ -120,6 +123,7 @@ class FileController extends Controller
             $file->is_folder = 1;
             // $file->name = $data['name'];
             $file->name = $uniqueName;
+            $file->path = Str::slug($uniqueName);
             $parent->appendNode($file);
 
             return response()->json([
@@ -202,6 +206,7 @@ class FileController extends Controller
                 $folder = new File();
                 $folder->is_folder = 1;
                 $folder->name = $uniqueName;
+                $file->path = Str::slug($uniqueName);
                 $parent->appendNode($folder);
 
                 $this->saveFileTree($file, $folder, $user);
@@ -227,11 +232,15 @@ class FileController extends Controller
         // }
 
         $path = $file->store('/files/' . $user->id, 'public');
+        $slugCandidate = str_replace('.', ' ', $uniqueName);
+        $slugCandidate = str_replace(['(', ')'], ' ', $slugCandidate);
+        $newPath = Str::slug($slugCandidate);
 
         $model = new File();
         $model->storage_path = $path;
         $model->is_folder = false;
         $model->name = $uniqueName;
+        $model->path = $newPath;
         $model->mime = $file->getMimeType();
         $model->size = $file->getSize();
         $model->uploaded_on_cloud = 0;
@@ -242,8 +251,56 @@ class FileController extends Controller
             $labels = request()->input('labels');
             $model->labels()->sync($labels);
         }
+    }
 
-        // UploadFileToCloudJob::dispatch($model);
+    public function update(UpdateFileRequest $request, string $fileId)
+    {
+        try {
+            $file = $request->file;
+
+            if (!$file->isOwnedBy(Auth::id())) {
+                return response()->json(['message' => 'Unauthorized to modify this file/folder'], 403);
+            }
+
+            $oldName = $file->name;
+            $newName = $request->validated('name');
+
+            $file->name = $newName;
+
+            if (!$file->is_folder) {
+                $slugCandidate = str_replace('.', ' ', $newName);
+                $newPath = Str::slug($slugCandidate);
+
+                $file->path = $newPath;
+
+                $labelIds = $request->validated('label_ids');
+                if (is_array($labelIds)) {
+                    $file->labels()->sync($labelIds);
+                }
+            } else {
+                 $file->path = Str::slug($newName);
+            }
+
+            $file->save();
+
+            $updatedFile = File::query()->where('id', $file->id)->with('labels')->first();
+
+            return response()->json([
+                'message' => $file->is_folder
+                    ? "Folder '$oldName' successfully renamed to '$newName'"
+                    : "File '$oldName' successfully updated to '$newName'",
+                'file' => new FileResource($updatedFile),
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => 'File not found or access denied'], 404);
+        } catch (Exception $e) {
+            Log::error("Failed to update file: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to update file/folder',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function destroy(FilesActionRequest $request)
@@ -571,6 +628,67 @@ class FileController extends Controller
         }
 
         return Storage::disk('public')->download($path);
+    }
+
+    public function getFileInfo(Request $request, string $fileId)
+    {
+        try {
+            if (!Auth::check()) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+
+            $file = File::query()
+                ->where('id', $fileId)
+                ->where(function ($query) {
+                    $query->where('created_by', Auth::id())
+                          ->orWhereHas('shareables', function ($q) {
+                              $q->where('user_id', Auth::id());
+                          });
+                })
+                ->with(['labels', 'shareables.user', 'shareables.permission', 'user'])
+                ->firstOrFail();
+
+            $ancestors = $file->ancestors()->get();
+
+            $shares = $file->shareables->map(function ($share) {
+                return [
+                    'user_id' => $share->user_id,
+                    'user_name' => $share->user->name,
+                    'user_email' => $share->user->email,
+                    'permission' => $share->permission->name,
+                ];
+            });
+
+            $locationPath = 'MySpace';
+            foreach ($ancestors as $ancestor) {
+                if (!$ancestor->isRoot()) {
+                    $locationPath .= '/' . $ancestor->name;
+                }
+            }
+
+            $locationPath .= '/' . $file->name;
+
+            $fileResource = new FileResource($file);
+
+            return response()->json([
+                'file_info' => [
+                    ...$fileResource->toArray($request),
+
+                    'location' => $locationPath,
+                    'shares' => $shares,
+                    'owner_name' => $file->user->fullname,
+
+                ],
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => 'File not found or access denied'], 404);
+        } catch (Exception $e) {
+            Log::error("Failed to get file info: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to fetch file information',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 
 }
