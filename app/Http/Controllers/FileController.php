@@ -123,6 +123,7 @@ class FileController extends Controller
             $file->is_folder = 1;
             // $file->name = $data['name'];
             $file->name = $uniqueName;
+            $file->path = Str::slug($uniqueName);
             $parent->appendNode($file);
 
             return response()->json([
@@ -205,6 +206,7 @@ class FileController extends Controller
                 $folder = new File();
                 $folder->is_folder = 1;
                 $folder->name = $uniqueName;
+                $file->path = Str::slug($uniqueName);
                 $parent->appendNode($folder);
 
                 $this->saveFileTree($file, $folder, $user);
@@ -230,11 +232,15 @@ class FileController extends Controller
         // }
 
         $path = $file->store('/files/' . $user->id, 'public');
+        $slugCandidate = str_replace('.', ' ', $uniqueName);
+        $slugCandidate = str_replace(['(', ')'], ' ', $slugCandidate);
+        $newPath = Str::slug($slugCandidate);
 
         $model = new File();
         $model->storage_path = $path;
         $model->is_folder = false;
         $model->name = $uniqueName;
+        $model->path = $newPath;
         $model->mime = $file->getMimeType();
         $model->size = $file->getSize();
         $model->uploaded_on_cloud = 0;
@@ -262,11 +268,17 @@ class FileController extends Controller
             $file->name = $newName;
 
             if (!$file->is_folder) {
-                $labelIds = $request->validated('label_ids');
+                $slugCandidate = str_replace('.', ' ', $newName);
+                $newPath = Str::slug($slugCandidate);
 
+                $file->path = $newPath;
+
+                $labelIds = $request->validated('label_ids');
                 if (is_array($labelIds)) {
                     $file->labels()->sync($labelIds);
                 }
+            } else {
+                 $file->path = Str::slug($newName);
             }
 
             $file->save();
