@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\File;
 use App\Models\Token;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -164,6 +165,77 @@ class UserController extends Controller
         }
     }
 
+    // public function login(Request $request){
+    //     try {
+    //         $messages = [
+    //             'email.required' => 'The email field is required',
+    //             'email.email' => 'The email must be a valid email address',
+    //             'email.exists' => 'The selected email is invalid',
+    //         ];
+
+    //         $validator = Validator::make(
+    //             $request->all(),
+    //             [
+    //                 'email' => 'required|email',
+    //                 'password' => 'required'
+    //             ],
+    //             $messages
+    //         );
+
+    //         if ($validator->fails()){
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => $validator->messages()->first()
+    //             ], 422);
+    //         }
+
+    //         $user = User::where('email', $request['email'])->first();
+
+    //         if (!$user) {
+    //             return response()->json([
+    //                 'status' => 'error',
+    //                 'message' => 'Email not found.'
+    //             ], 401);
+    //         }
+
+    //         if (!Hash::check($request['password'], $user->password)) {
+    //             return response()->json([
+    //                 'status' => 'error',
+    //                 'message' => 'Incorrect password, please insert the correct password.'
+    //             ], 401);
+    //         }
+
+    //         $credentials = $request->only('email', 'password');
+
+    //         if (Auth::attempt($credentials)) {
+    //             $request->session()->regenerate();
+
+    //             return response()->json([
+    //                 'status' => 'success',
+    //                 'message' => 'Login successful',
+    //                 'user' => Auth::user(),
+    //             ], 200);
+    //         }
+
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => 'Invalid credentials. Please check your email or password.'
+    //         ], 401);
+    //     } catch (ValidationException $e) {
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => 'Validasi gagal',
+    //             'errors' => $e->errors()
+    //         ], 422);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => 'Terjadi error saat login',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function login(Request $request){
         try {
             $messages = [
@@ -229,6 +301,7 @@ class UserController extends Controller
         }
     }
 
+
     public function updateUserProfile(Request $request){
         try {
             $request->validate([
@@ -237,7 +310,7 @@ class UserController extends Controller
                 'photo_profile' => 'nullable|image|max:2048',
             ]);
 
-            
+
             return DB::transaction(function () use ($request) {
                 $user = $request->user();
 
@@ -280,6 +353,34 @@ class UserController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'An error occurred while processing the request: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deletePhotoProfile(Request $request){
+        try {
+            $user = $request->user();
+
+            if (empty($user->photo_profile_path)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No profile photo to delete',
+                ], 400);
+            }
+
+            Storage::disk('public')->delete('profile_photos/' . $user->photo_profile_path);
+
+            $user->photo_profile_path = null;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile photo deleted successfully',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting the profile photo: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -452,6 +553,39 @@ class UserController extends Controller
         }
     }
 
+    public function changePassword(Request $request){
+        try {
+            $request->validate([
+                'current_password' => 'required',
+                'new_password' => 'required|confirmed|min:8',
+            ]);
+
+            $user = $request->user();
+
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is incorrect',
+                ], 422);
+            }
+
+            $user->password = Hash::make($request->new_password);
+            $user->save();
+
+            $user->tokens()->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password updated successfully. Please log in again with your new password.',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating the password: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function logout(Request $request){
         try {
             $user = $request->user();
@@ -463,7 +597,10 @@ class UserController extends Controller
                 ], 401);
             }
 
-            $user->currentAccessToken()->delete();
+            Auth::guard('web')->logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
             return response()->json([
                 'status' => 'success',
