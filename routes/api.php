@@ -37,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/create-folder', [FileController::class, 'createFolder']);
     Route::post('/upload-files', [FileController::class, 'store']);
     Route::patch('/update-file/{fileId}', [FileController::class, 'update']);
-    Route::delete('/delete-file', [FileController::class, 'destroy']);
+    Route::delete('/delete-file/{fileId}', [FileController::class, 'destroy']);
     Route::get('view-file/{fileId}', [FileController::class, 'viewFile'])->name('file.view');
     Route::post('/download', [FileController::class, 'download']);
     Route::get('/storage-file', [FileController::class, 'serveStorageFile']);

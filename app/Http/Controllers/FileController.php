@@ -11,9 +11,10 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
-use App\Http\Requests\FilesActionRequest;
+use App\Http\Requests\DownloadFileRequest;
 use App\Http\Requests\TrashFilesRequest;
 use App\Http\Requests\ForceDeleteFilesRequest;
+use App\Http\Requests\DeleteFileRequest;
 use App\Http\Requests\StoreFileRequest;
 use App\Http\Requests\StoreFolderRequest;
 use App\Http\Requests\UpdateFileRequest;
@@ -296,23 +297,38 @@ class FileController extends Controller
         }
     }
 
-    public function destroy(FilesActionRequest $request)
+    // public function destroy(FilesActionRequest $request)
+    // {
+    //     $data = $request->validated();
+    //     $parent = $request->parent;
+
+    //     if ($data['all']) {
+    //         $children = $parent->children;
+    //         foreach ($children as $child) {
+    //             $child->moveToTrashWithDescendants();
+    //         }
+    //     } else {
+    //         foreach ($data['ids'] ?? [] as $id) {
+    //             $file = File::find($id);
+    //             if ($file) {
+    //                 $file->moveToTrashWithDescendants();
+    //             }
+    //         }
+    //     }
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'File(s)/folder(s) moved to trash successfully.',
+    //     ]);
+    // }
+
+    public function destroy(DeleteFileRequest $request, string $fileId)
     {
         $data = $request->validated();
-        $parent = $request->parent;
 
-        if ($data['all']) {
-            $children = $parent->children;
-            foreach ($children as $child) {
-                $child->moveToTrashWithDescendants();
-            }
-        } else {
-            foreach ($data['ids'] ?? [] as $id) {
-                $file = File::find($id);
-                if ($file) {
-                    $file->moveToTrashWithDescendants();
-                }
-            }
+        $file = File::find($data['file_id']);
+        if ($file) {
+            $file->moveToTrashWithDescendants();
         }
 
         return response()->json([
@@ -441,7 +457,7 @@ class FileController extends Controller
         ]);
     }
 
-    public function download(FilesActionRequest $request)
+    public function download(DownloadFileRequest $request)
     {
         $data = $request->validated();
         $parent = $request->parent;
@@ -552,7 +568,6 @@ class FileController extends Controller
                 Log::warning("Failed to add file to zip: {$file->id} - {$e->getMessage()}");
                 continue;
             }
-
 
         }
     }
