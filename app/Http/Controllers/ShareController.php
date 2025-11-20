@@ -185,7 +185,7 @@ class ShareController extends Controller
                     $user = User::where('email', $email)->firstOrFail();
 
                     $token = \Illuminate\Support\Str::uuid();
-                    $shareLink = url("api/share/{$token}");
+                    $shareLink = "http://127.0.0.1:3000/share/{$token}";
 
                     $file->shares()->attach(
                         $user->id,
@@ -241,18 +241,25 @@ class ShareController extends Controller
 
     public function accessSharedFile($token)
     {
-        $share = Shareable::where('token', $token)->first();
+         $share = Shareable::where('token', $token)->first();
 
         if (!$share) {
-            abort(404, 'This link is invalid.');
+            return response()->json(['message' => 'Invalid link'], 404);
         }
 
-        $file_path = File::where('id', $share->file_id)->first()->storage_path;
-        $file_id = $share->file_id;
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
 
-        // return redirect()->to("http://127.0.0.1:8000/storage/{$file_path}");
-        // return redirect()->to("http://pdu-dms.my.id/storage/{$file_path}");
-        return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+        if (Auth::id() !== $share->shared_to) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $file_id = $share->file_id;
+        $file = File::findOrFail($share->file_id);
+
+        // return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+        return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
     }
 
     public function viewFilePublic($token){
@@ -274,7 +281,8 @@ class ShareController extends Controller
 
             // return redirect()->to("http://127.0.0.1:8000/storage/$file_path");
             // return redirect()->to("http://pdu-dms.my.id/storage/{$file_path}");
-            return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+            // return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+            return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
 
         } catch (\Exception $e) {
             Log::error('ShareController@store failed: ' . $e->getMessage());
