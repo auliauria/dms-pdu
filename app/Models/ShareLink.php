@@ -15,7 +15,6 @@ class ShareLink extends Model
 
     protected $fillable = [
         'file_id',
-        'user_id',
         'permission_id',
         'path',
         'expires_at',

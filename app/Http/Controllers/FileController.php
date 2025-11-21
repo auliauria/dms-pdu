@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Shareable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -25,6 +26,7 @@ use App\Models\FileAccessLog;
 use App\Jobs\UploadFileToCloudJob;
 use App\Helpers\FileHelper;
 use Exception;
+use Spatie\Permission\Models\Role;
 
 class FileController extends Controller
 {
@@ -389,10 +391,25 @@ class FileController extends Controller
         $fileRecord = File::findOrFail($fileId);
         $user = $request->user();
 
-        if ($user->id !== $fileRecord->created_by) {
+        $shareables = Shareable::where('file_id', $fileId)
+            ->where('shared_to', $user->id)
+            ->first();
+
+        $role = Role::where('name', 'receiver')->first();
+
+        Log::info("Shareable record", [
+            'role_id_on_record' => $shareables ? $shareables->role_id : null,
+            'expected_role_id' => $role ? $role->id : null,
+        ]);
+
+        $isCreator = $user->id === $fileRecord->created_by;
+        $isSharedReceiver = $shareables && (int)$shareables->role_id === (int)$role->id;
+
+        if (!($isCreator || $isSharedReceiver)) {
             abort(403, 'Access Denied. You do not have permission to view this file.');
         }
-        $this->trackAccess((int) $fileId, $user->id);
+
+        $this->trackAccess((int)$fileId, $user->id);
 
         $path = $fileRecord->storage_path;
 
