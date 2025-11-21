@@ -16,6 +16,7 @@ class Shareable extends Model
         'shared_to',
         'role_id',
         'shared_by',
+        'token'
     ];
 
     public function file()

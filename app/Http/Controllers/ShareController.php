@@ -125,6 +125,42 @@ class ShareController extends Controller
     }
 
 
+    private function shareFolder(File $folder, User $targetUser, User $sharedBy)
+    {
+        $folderShare = Shareable::firstOrCreate(
+            [
+                'file_id'   => $folder->id,
+                'shared_to' => $targetUser->id,
+            ],
+            [
+                'role_id'   => 4,
+                'shared_by' => $sharedBy->id,
+                'token'     => \Illuminate\Support\Str::uuid(),
+            ]
+        );
+
+        $descendants = $folder->descendants()->where('is_folder', 0)->get();
+
+        foreach ($descendants as $childFile) {
+            Shareable::firstOrCreate(
+                [
+                    'file_id'   => $childFile->id,
+                    'shared_to' => $targetUser->id,
+                ],
+                [
+                    'role_id'   => 4,
+                    'shared_by' => $sharedBy->id,
+                    'token'     => \Illuminate\Support\Str::uuid(),
+                ]
+            );
+        }
+
+        return $folderShare;
+    }
+
+
+
+
     /**
      * Store a newly created resource in storage.
      */
@@ -136,8 +172,6 @@ class ShareController extends Controller
 
             $file = File::findOrFail($id);
             $sharedBy = Auth::user();
-
-            Log::info('File id shared ' . $file->created_by);
 
             if ($sharedBy->id !== $file->created_by) {
                 return response()->json([
@@ -158,19 +192,14 @@ class ShareController extends Controller
                 'emails.*' => 'email|exists:users,email',
             ]);
 
-            if($request->has('emails')){
-                foreach ($validated['emails'] as $email) {
-                    $user = User::where('email', $email)->first();
 
-                    if (!$user) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => "User with email $email not found.",
-                        ], 404);
-                    }
+            if ($request->has('emails')) {
+
+                foreach ($validated['emails'] as $email) {
+                    $targetUser = User::where('email', $email)->firstOrFail();
 
                     $alreadyShared = Shareable::where('file_id', $file->id)
-                        ->where('shared_to', $user->id)
+                        ->where('shared_to', $targetUser->id)
                         ->exists();
 
                     if ($alreadyShared) {
@@ -182,54 +211,59 @@ class ShareController extends Controller
                 }
 
                 foreach ($validated['emails'] as $email) {
-                    $user = User::where('email', $email)->firstOrFail();
+                    $targetUser = User::where('email', $email)->firstOrFail();
 
-                    $token = \Illuminate\Support\Str::uuid();
-                    $shareLink = url("api/share/{$token}");
+                    if ($file->is_folder) {
+                        $shareRecord = $this->shareFolder($file, $targetUser, $sharedBy);
+                    } else {
+                        $shareRecord = Shareable::firstOrCreate(
+                            [
+                                'file_id'   => $file->id,
+                                'shared_to' => $targetUser->id
+                            ],
+                            [
+                                'role_id'   => 4,
+                                'shared_by' => $sharedBy->id,
+                                'token'     => \Illuminate\Support\Str::uuid(),
+                            ]
+                        );
+                    }
 
-                    $file->shares()->attach(
-                        $user->id,
-                        [
-                            'role_id' => 4,
-                            'shared_by' => $sharedBy->id,
-                            'token' => $token,
-                        ]
-                    );
+                    // $shareLink = "http://127.0.0.1:3000/share/{$shareRecord->token}";
+                    $shareLink = "https://dms-pdu-production.up.railway.app/share/{$shareRecord->token}";
 
-                    Mail::to($user->email)->send(
-                        new FileSharedMail($file, $sharedBy, $user, $shareLink)
+                    Mail::to($targetUser->email)->send(
+                        new FileSharedMail($file, $sharedBy, $targetUser, $shareLink)
                     );
                 }
-            } else {
-                $file = File::findOrFail($id);
 
-                try {
-                    $secureLink = ShareLink::create([
-                        'file_id' => $file->id,
-                        'path' => $file->path,
-                        'permission_id' => 4,
-                        'expires_at' => now()->addMonthNoOverflow()
-                    ]);
-
-                    return response()->json([
-                        'share_link' => $secureLink->getUrl(),
-                        'token' => $secureLink->token,
-                        'expires_at' => $secureLink->expires_at,
-                    ]);
-
-                } catch (\Exception $e) {
-                    Log::error('Failed to create secure share link: ' . $e->getMessage());
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to create share link: ' . $e->getMessage(),
-                    ], 500);
-                }
+                return response()->json([
+                    'success' => true,
+                    'message' => 'File shared successfully.',
+                ]);
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'File shared successfully.',
-            ]);
+            try {
+                $secureLink = ShareLink::create([
+                    'file_id' => $file->id,
+                    'path' => $file->path,
+                    'permission_id' => 4,
+                    'expires_at' => now()->addMonthNoOverflow()
+                ]);
+
+                return response()->json([
+                    'share_link' => $secureLink->getUrl(),
+                    'token' => $secureLink->token,
+                    'expires_at' => $secureLink->expires_at,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to create secure share link: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create share link: ' . $e->getMessage(),
+                ], 500);
+            }
+
         } catch (\Exception $e) {
             Log::error('ShareController@store failed: ' . $e->getMessage());
             return response()->json([
@@ -239,20 +273,28 @@ class ShareController extends Controller
         }
     }
 
+
     public function accessSharedFile($token)
     {
-        $share = Shareable::where('token', $token)->first();
+         $share = Shareable::where('token', $token)->first();
 
         if (!$share) {
-            abort(404, 'This link is invalid.');
+            return response()->json(['message' => 'Invalid link'], 404);
         }
 
-        $file_path = File::where('id', $share->file_id)->first()->storage_path;
-        $file_id = $share->file_id;
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
 
-        // return redirect()->to("http://127.0.0.1:8000/storage/{$file_path}");
-        // return redirect()->to("http://pdu-dms.my.id/storage/{$file_path}");
+        if (Auth::id() !== $share->shared_to) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $file_id = $share->file_id;
+        $file = File::findOrFail($share->file_id);
+
         return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+        // return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
     }
 
     public function viewFilePublic($token){
@@ -275,6 +317,7 @@ class ShareController extends Controller
             // return redirect()->to("http://127.0.0.1:8000/storage/$file_path");
             // return redirect()->to("http://pdu-dms.my.id/storage/{$file_path}");
             return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+            // return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
 
         } catch (\Exception $e) {
             Log::error('ShareController@store failed: ' . $e->getMessage());
