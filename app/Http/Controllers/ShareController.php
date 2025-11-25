@@ -293,7 +293,7 @@ class ShareController extends Controller
         $file_id = $share->file_id;
         $file = File::findOrFail($share->file_id);
 
-        return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
+        return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}"); 
         // return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
     }
 

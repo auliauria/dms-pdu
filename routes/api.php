@@ -22,8 +22,8 @@ Route::get('/test', function() {
 
 Route::post('/register-user', [UserController::class, 'register']);
 Route::post('/login-user', [UserController::class, 'login']);
-// Route::get( '/unauthenticated', [UserController::class, 'unauthenticated'])->name('login');
 
+Route::get('/search-users', [UserController::class, 'searchUsers']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/last-opened-files', [FileController::class, 'lastOpenedFiles']);

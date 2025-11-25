@@ -515,6 +515,27 @@ class UserController extends Controller
         }
     }
 
+    public function searchUsers(Request $request){
+        try {
+            $query = $request->input('q');
+
+            if (!$query) {
+                return response()->json([]);
+            }
+
+            $users = User::where('email', 'LIKE', "%{$query}%")
+                        ->limit(10)
+                        ->get();
+
+            return response()->json($users);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to search users: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function logout(Request $request){
         try {
             $user = $request->user();
