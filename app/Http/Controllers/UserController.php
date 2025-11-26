@@ -122,10 +122,7 @@ class UserController extends Controller
 
             $user->markEmailAsVerified();
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Email verified successfully.'
-            ], 200);
+            return redirect()->away('https://dms-pdu-production.up.railway.app/signin');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'status' => 'error',
@@ -153,10 +150,7 @@ class UserController extends Controller
 
             $user->sendEmailVerificationNotification();
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Verification email resent.'
-            ], 200);
+            return redirect()->away('https://dms-pdu-production.up.railway.app/signin');
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
