@@ -291,11 +291,14 @@ class ShareController extends Controller
         }
 
         $file_id = $share->file_id;
+        Log::info('Accessing shared file with ID: ' . $file_id);
+
         $file = File::findOrFail($share->file_id);
 
-        return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}"); 
+        return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
         // return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
     }
+
 
     public function viewFilePublic($token){
         try {
@@ -314,8 +317,6 @@ class ShareController extends Controller
 
             Log::info('Accessing public shared file at path: ' . $file_path);
 
-            // return redirect()->to("http://127.0.0.1:8000/storage/$file_path");
-            // return redirect()->to("http://pdu-dms.my.id/storage/{$file_path}");
             return redirect()->to("https://dms-pdu-production.up.railway.app/file-view/{$file_id}");
             // return redirect()->to("http://127.0.0.1:3000/file-view/{$file_id}");
 
