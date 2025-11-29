@@ -7,24 +7,38 @@ use App\Models\File;
 use App\Models\FileAccessLog;
 use App\Http\Resources\FileResource;
 use Illuminate\Support\Facades\Auth;
+use App\Traits\SortableFileQuery;
 
 class LastOpenedController extends Controller
 {
-    public function lastOpenedFiles()
+    use SortableFileQuery;
+
+    public function lastOpenedFiles(Request $request)
     {
         $userId = Auth::id();
+        $sortBy = $request->get('sort');
 
         try {
-            $files = File::query()
+            $query = File::query()
                 ->with('labels')
                 ->join('file_access_logs as log', 'log.file_id', '=', 'files.id')
                 ->where('log.user_id', $userId)
                 ->whereNull('files.deleted_at')
                 ->whereNotNull('files.parent_id')
-                ->select('files.*', 'log.last_accessed_at')
-                ->orderBy('log.last_accessed_at', 'desc')
-                ->limit(12)
-                ->get();
+                ->select('files.*', 'log.last_accessed_at');
+
+            // primary sort: last opened first
+            $query->orderBy('log.last_accessed_at', 'desc');
+
+            // secondary sort: user requested sort
+            $secondarySortRule = $this->getSortRule($sortBy);
+            if ($secondarySortRule) {
+                $query->orderBy($secondarySortRule['column'], $secondarySortRule['direction']);
+            }
+
+            $query->orderBy('files.id', 'desc');
+
+            $files = $query->limit(12)->get();
 
             $lastOpenedFolders = $files->where('is_folder', true)->take(6);
             $lastOpenedFiles = $files->where('is_folder', false)->take(6);

@@ -6,15 +6,19 @@ use Illuminate\Http\Request;
 use App\Models\File;
 use App\Http\Resources\FileResource;
 use Illuminate\Support\Facades\Auth;
+use App\Traits\SortableFileQuery;
 
 class RecommendedController extends Controller
 {
-    public function recommendedFiles()
+    use SortableFileQuery;
+
+    public function recommendedFiles(Request $request)
     {
         $userId = Auth::id();
+        $sortBy = $request->get('sort');
 
         try {
-            $recommendedFiles = File::query()
+            $query = File::query()
                 ->select('files.*', \DB::raw('COUNT(log.id) as access_count'))
                 ->join('file_access_logs as log', 'log.file_id', '=', 'files.id')
                 ->where('files.created_by', $userId)
@@ -22,11 +26,19 @@ class RecommendedController extends Controller
                 ->where('files.is_folder', false)
                 ->whereNull('files.deleted_at')
                 ->groupBy('files.id')
-                ->orderByDesc('access_count')
-                ->orderByDesc('files.updated_at')
-                ->limit(5)
-                ->with('labels')
-                ->get();
+                ->with('labels');
+
+            // primary sort: most accessed first
+            $query->orderByDesc('access_count');
+
+            // secondary sort: user requested sort
+            $secondarySortRule = $this->getSortRule($sortBy);
+            if ($secondarySortRule) {
+                $query->orderBy($secondarySortRule['column'], $secondarySortRule['direction']);
+            }
+            $query->orderByDesc('files.updated_at');
+
+            $recommendedFiles = $query->limit(5)->get();
 
             $message = $recommendedFiles->isNotEmpty()
                 ? 'Successfully retrieved recommended files.'

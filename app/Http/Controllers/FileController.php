@@ -26,9 +26,12 @@ use App\Jobs\UploadFileToCloudJob;
 use App\Helpers\FileHelper;
 use Exception;
 use Spatie\Permission\Models\Role;
+use App\Traits\SortableFileQuery;
 
 class FileController extends Controller
 {
+    use SortableFileQuery;
+
     public function myFiles(Request $request, string $folderId = null)
     {
         try {
@@ -39,6 +42,7 @@ class FileController extends Controller
             }
 
             $search = $request->get('search');
+            $sortBy = $request->get('sort');
 
             if ($folderId) {
                 $folder = File::query()
@@ -54,16 +58,15 @@ class FileController extends Controller
                 ->select('files.*')
                 ->where('created_by', Auth::id())
                 ->where('_lft', '!=', 1)
-                ->with('labels')
-                ->orderBy('is_folder', 'desc')
-                ->orderBy('files.created_at', 'desc')
-                ->orderBy('files.id', 'desc');
+                ->with('labels');
 
             if ($search) {
                 $query->where('name', 'like', "%$search%");
             } else {
                 $query->where('parent_id', $folder->id);
             }
+
+            $query = $this->applyDmsSorting($query, $sortBy);
 
             $files = $query->get();
             $files = FileResource::collection($files);
