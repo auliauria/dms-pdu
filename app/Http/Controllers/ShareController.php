@@ -387,6 +387,7 @@ class ShareController extends Controller
                         'file_id' => $file->id,
                         'file_name' => $file->name,
                         'file_path' => $file->path,
+                        'is_folder' => $file->is_folder,
                         'shared_by' => [
                             'id' => $file->user->id,
                             'name' => $file->user->fullname,

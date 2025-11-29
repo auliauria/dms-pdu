@@ -27,6 +27,7 @@ use App\Helpers\FileHelper;
 use Exception;
 use Spatie\Permission\Models\Role;
 use App\Traits\SortableFileQuery;
+use Illuminate\Database\Eloquent\Builder;
 
 class FileController extends Controller
 {
@@ -45,10 +46,18 @@ class FileController extends Controller
             $sortBy = $request->get('sort');
 
             if ($folderId) {
+                $userId = Auth::id();
+
                 $folder = File::query()
-                    ->where('created_by', Auth::id())
                     ->where('id', $folderId)
+                    ->where(function (Builder $query) use ($userId) {
+                        $query->where('created_by', $userId)
+                            ->orWhereHas('shareables', function (Builder $q) use ($userId) {
+                                $q->where('shared_to', $userId);
+                            });
+                    })
                     ->firstOrFail();
+
                 $this->trackAccess((int)$folderId, Auth::id());
             } else {
                 $folder = $this->getRoot();
@@ -56,7 +65,6 @@ class FileController extends Controller
 
             $query = File::query()
                 ->select('files.*')
-                ->where('created_by', Auth::id())
                 ->where('_lft', '!=', 1)
                 ->with('labels');
 
@@ -335,7 +343,7 @@ class FileController extends Controller
         }
 
         Log::info("Serving file from storage", ['path' => $path]);
-        
+
         return Storage::disk('public')->response($path);
     }
 
