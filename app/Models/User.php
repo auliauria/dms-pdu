@@ -63,10 +63,10 @@ class User extends Authenticatable
         return $this->belongsToMany(
             File::class,
             'shareables',
-            'user_id',
+            'shared_to',
             'file_id'
         )
-        ->withPivot(['permission_id', 'created_by'])
+        ->withPivot(['role_id','shared_by'])
         ->withTimestamps();
     }
 
