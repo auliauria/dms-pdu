@@ -385,7 +385,7 @@ class ShareController extends Controller
                             'name' => $file->user->fullname,
                             'email' => $file->user->email,
                         ],
-                        'role' => Permission::find($file->pivot->permission_id)->name,
+                        'role' => Permission::find($file->pivot->role_id)->name,
                     ];
                 });
 
