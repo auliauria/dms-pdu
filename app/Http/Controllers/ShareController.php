@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Mail;
 use Laravel\Pail\ValueObjects\Origin\Console;
 use Ramsey\Uuid\Type\Integer;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Str;
 
 class ShareController extends Controller
@@ -385,7 +386,7 @@ class ShareController extends Controller
                             'name' => $file->user->fullname,
                             'email' => $file->user->email,
                         ],
-                        'role' => Permission::find($file->pivot->role_id)->name,
+                        'role' => Role::find($file->pivot->role_id)->name,
                     ];
                 });
 
