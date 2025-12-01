@@ -341,7 +341,7 @@ class FileController extends Controller
         $path = $fileRecord->storage_path;
 
         if (!Storage::disk('public')->exists($path)) {
-            abort(404, 'File tidak ditemukan di server.');
+            abort(404, 'File is not found in server.');
         }
 
         Log::info("Serving file from storage", ['path' => $path]);

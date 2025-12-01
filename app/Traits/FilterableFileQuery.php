@@ -100,7 +100,7 @@ trait FilterableFileQuery
 
         if ($labelFilter && $labelFilter !== 'any') {
             $query->whereHas('labels', function (Builder $q) use ($labelFilter) {
-                $q->where('name', $labelFilter);
+                $q->where('id', $labelFilter);
             });
         }
     }
